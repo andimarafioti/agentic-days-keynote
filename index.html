@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giving a Body to AI</title>
+
+<!-- Fonts: same trio as the Reachy Mini trailer (Anton / DM Sans / JetBrains Mono). Everything the deck loads
+     is local (assets/vendor: fonts, three.js r180, Draco decoder), so it runs without a network. -->
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="deck.css">
+
+<script type="importmap">
+{ "imports": {
+    "three": "./assets/vendor/three/build/three.module.js",
+    "three/addons/": "./assets/vendor/three/examples/jsm/"
+} }
+</script>
+
+<script>document.documentElement.dataset.theme = 'dark';</script>
+</head>
+<body>
+<div class="deck-viewport">
+<main class="deck-stage" id="deckStage" data-slide="0">
+
+    <!-- === SHARED LAYERS: backdrop, robot, grain === -->
+    <div class="backdrop"><div class="grid"></div></div>
+    <!-- World map: coastlines from the reachy-mini-trailer Space (assets/world-coast.json) -->
+    <div class="worldmap" aria-hidden="true">
+        <svg viewBox="0 0 3600 1800" preserveAspectRatio="none"><g id="mapView"><g id="mapCoast"></g><g id="mapDots"></g></g></svg>
+        <div class="map-pin" data-at="44.84 -0.58"><span>Bordeaux · Pollen Robotics</span></div>
+        <div class="map-pin" data-at="48.86 2.35"><span>Paris · Hugging Face</span></div>
+        <div class="map-pin about-pin" data-at="-34.60 -58.38"><span>Buenos Aires</span></div>
+        <div class="map-pin about-pin" data-at="48.21 16.37"><span>Vienna</span></div>
+        <div class="map-pin about-pin left now" data-at="46.95 7.45"><span>Bern · now</span></div>
+    </div>
+    <!-- Credits for the thank-you slide: behind the robots, rolling up like a film's end credits.
+     Generated from the GitHub contributors of the pollen-robotics Reachy Mini repos (2026-10-16), edit freely. -->
+<div class="credits" aria-hidden="true"><div class="roll">
+        <h4>Pollen Robotics</h4>
+        <p>Anne-Charlotte Passanisi</p>
+        <p>Antoine Pirrone</p>
+        <p>Augustin Crampette</p>
+        <p>Christophe Bergeret</p>
+        <p>Claire Houziel</p>
+        <p>Clement Dussieux</p>
+        <p>Coralie Deplanne</p>
+        <p>Etienne Besancon</p>
+        <p>Fabien Danieau</p>
+        <p>Rafiaa Khaddhar</p>
+        <p>Gaëlle Lannuzel</p>
+        <p>Jeremy Laville</p>
+        <p>Laura Capdeville</p>
+        <p>Matthieu Lapeyre</p>
+        <p>Miguel Rodrigues</p>
+        <p>Pierre Rouanet</p>
+        <p>Rémi Fabre</p>
+        <p>Santiago Pavon</p>
+        <p>Simon Le Goff</p>
+        <p>Steve Nguyen</p>
+
+        <h4>Hugging Face</h4>
+        <p>Alina Lozovskaia</p>
+        <p>Andrés Marafioti</p>
+        <p>Antun Skuric</p>
+        <p>Aritra Roy Gosthipaty</p>
+        <p>Caroline Pascal</p>
+        <p>Clément Delangue</p>
+        <p>David Louapre</p>
+        <p>Nicolas Rabault</p>
+        <p>Thibaud Frere</p>
+        <p>Thomas Wolf</p>
+        <p>Tom Mulder</p>
+
+        <h4>Community</h4>
+        <p>Amir Mahla</p>
+        <p>Bart Rygal</p>
+        <p>beibei-ovo</p>
+        <p>Carson Maestas</p>
+        <p>Daniel Ritchie</p>
+        <p>Daniiiil1</p>
+        <p>Drew Schuyler</p>
+        <p>Dskarr3</p>
+        <p>efe</p>
+        <p>Fazli Sapuan</p>
+        <p>Gijs de Jong</p>
+        <p>Grégoire Passault</p>
+        <p>Haixuan Xavier Tao</p>
+        <p>Hugo Turlet</p>
+        <p>Jacid23</p>
+        <p>jrubiosainz</p>
+        <p>Kamjin</p>
+        <p>Kentaro Iizuka</p>
+        <p>LaureenFabre</p>
+        <p>Lijun Zhu</p>
+        <p>Manfred + TARS</p>
+        <p>Mathias Karstaedt</p>
+        <p>mr-r0b0t</p>
+        <p>MrHaku81</p>
+        <p>Nabbil Khan</p>
+        <p>Nathan Segers</p>
+        <p>Ola Hungerford</p>
+        <p>Ori Nachum</p>
+        <p>PizBernina</p>
+        <p>robin</p>
+        <p>Simon Automne-Pinto</p>
+        <p>SunixLiu</p>
+        <p>Thor 雷神 Schaeff</p>
+        <p>tianrking</p>
+        <p>Toaster-Smuggler</p>
+        <p>Volodymyr Kublytskyi</p>
+        <p>Wee Ki Joon</p>
+        <p>Yael</p>
+        <p>Yasemin Ozkut</p>
+        <p>yeungadrian</p>
+        <p>秀吉</p>
+        <p>逐星大恶猫</p>
+</div></div>
+    <canvas id="robotCanvas" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="grain"></div>
+
+    <!-- === SLIDES, in order: inlined from slides/ by the build (edit the text there, then rebuild) === -->
+    <!-- The 3D scene expects the moves list of a slide this keynote leaves out. It stays in the page,
+         hidden, so js/scene.js runs unchanged. -->
+    <div hidden id="engineStubs"><div id="moveList"></div></div>
+    <!-- === COVER: Reachy Mini on the right, live === -->
+<section data-keynote="keep" class="slide cover" data-id="cover" data-scene="title" aria-label="Giving a body to AI">
+    <div class="hero">
+        <div class="kicker reveal" style="--d:0"><img src="media/hf-logo.png" alt="">Hugging Face × Pollen Robotics</div>
+        <h1 class="reveal" style="--d:1">Giving<br>a body<br><span class="hl">to AI</span></h1>
+        <p class="byline reveal" style="--d:3"><b>Andres Marafioti</b><br>Research Lead · Hugging Face</p>
+    </div>
+    <div class="rainbow"></div>
+    <div class="chrome reveal" style="--d:6"><span>Agentic Engineering Days · Zurich · 20 November 2026</span><span>@andimarafioti</span></div>
+</section>
+    <!-- === ABOUT ME: Buenos Aires to Vienna on the world map, then work === -->
+<section data-keynote="keep" class="slide" data-id="about" aria-label="About me">
+    <div class="about me-about">
+        <div class="name reveal" style="--d:0">
+            <img class="me" src="media/london/andi.jpg" alt="Andi Marafioti">
+            <div>
+                <div class="kicker">About me</div>
+                <h2>Andi</h2>
+            </div>
+        </div>
+        <p class="role reveal" style="--d:1"><b>Research Lead</b> at Hugging Face<br>Argentinian <span class="flag-ar" role="img" aria-label="Argentina"></span></p>
+        <div class="bio">
+            <div class="reveal" style="--d:2"><div class="k">Work</div><div class="v"><b>Hugging Face</b><br>Unity<br>Intuitive Surgical</div></div>
+            <div class="reveal" style="--d:3"><div class="k">Education</div><div class="v">
+                <div class="ed"><span class="t">PhD in Generative AI</span><span class="w">Acoustics Research Institute, Vienna</span></div>
+                <div class="ed"><span class="t">Sound Engineering</span><span class="w">UNTREF, Buenos Aires</span></div>
+            </div></div>
+        </div>
+    </div>
+    <div class="chrome reveal" style="--d:6"><span>@andimarafioti</span><span class="num"></span></div>
+</section>
+    <!-- === Opening statement: agents are colleagues now, and they live in a text box === -->
+<section class="slide mine" data-id="colleagues" data-keynote="keep" aria-label="Agents are becoming colleagues" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:center;gap:40px">
+<p class="reveal" style="--d:0;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">Agentic engineering · 2026</p>
+<h1 class="reveal" style="--d:1;font-family:'Anton', Arial, sans-serif;font-size:150px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">Agents are becoming<br><span style="color:#FFD21E">colleagues</span></h1>
+<p class="reveal" style="--d:2;font-size:40px;line-height:1.35;color:#B9B9C2;width:1200px">They write the code, review it and ship it.<br>And they still live in a text box.</p>
+
+</section>
+    <!-- === The thesis of the keynote: a team, a voice, a body === -->
+<section class="slide mine" data-id="thesis" data-keynote="keep" aria-label="What a colleague has: a team, a voice, a body" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;justify-content:space-between;gap:40px">
+<div class="reveal" style="--d:0;display:flex;flex-direction:column;gap:20px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">This talk</p>
+<h2 style="font-family:'Anton', Arial, sans-serif;font-size:112px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">What a colleague has</h2>
+</div>
+<div class="reveal" style="--d:1;display:flex;gap:56px">
+<div style="flex:1;display:flex;flex-direction:column;gap:14px;border-top:2px solid #3A3A40;padding:28px 0px 0px 0px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;letter-spacing:3px;color:#8A8A94">01</p>
+<p style="font-family:'Anton', Arial, sans-serif;font-size:84px;line-height:1.0;text-transform:uppercase;white-space:nowrap;color:#F4EFE6">A team</p>
+<p style="font-size:34px;line-height:1.35;color:#B9B9C2">They work with others, not just you.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:14px;border-top:2px solid #3A3A40;padding:28px 0px 0px 0px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;letter-spacing:3px;color:#8A8A94">02</p>
+<p style="font-family:'Anton', Arial, sans-serif;font-size:84px;line-height:1.0;text-transform:uppercase;white-space:nowrap;color:#F4EFE6">A voice</p>
+<p style="font-size:34px;line-height:1.35;color:#B9B9C2">They have opinions, and you can have conversations with them.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:14px;border-top:2px solid #FFD21E;padding:28px 0px 0px 0px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;letter-spacing:3px;color:#FFD21E">03</p>
+<p style="font-family:'Anton', Arial, sans-serif;font-size:84px;line-height:1.0;text-transform:uppercase;white-space:nowrap;color:#FFD21E">A body</p>
+<p style="font-size:34px;line-height:1.35;color:#B9B9C2">They exist in the physical world.</p>
+</div>
+</div>
+<p class="reveal" style="--d:2;font-size:36px;font-style:italic;font-weight:500;line-height:1.3;color:#F4EFE6">Three things we have been building for our own agents at Hugging Face.</p>
+<div class="chrome reveal" style="--d:8"><span>Giving a body to AI</span><span class="num"></span></div>
+</section>
+    <!-- === 01 A PERSONALITY, the bridge into msgboard: how will we work with agents? === -->
+<section class="slide mine" data-id="newtools" data-keynote="keep" aria-label="How will we work with agents?" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:center;gap:44px">
+<p class="reveal" style="--d:0;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">01 · A team</p>
+<h1 class="reveal" style="--d:1;font-family:'Anton', Arial, sans-serif;font-size:150px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">How will we work<br>with <span style="color:#FFD21E">agents?</span></h1>
+<p class="reveal" style="--d:2;font-size:40px;line-height:1.35;color:#B9B9C2;width:1300px">We need new tools. What about a Slack for agents?</p>
+<div class="reveal" style="--d:3;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px">
+<p style="font-size:30px;font-weight:500;line-height:1.2;color:#F4EFE6;background:rgba(243,239,230,0.06);border:1px solid #3A3A40;border-radius:12px;padding:18px 26px">Your developer</p><p style="font-size:30px;font-weight:500;line-height:1.2;color:#F4EFE6;background:rgba(243,239,230,0.06);border:1px solid #3A3A40;border-radius:12px;padding:18px 26px">Your designer</p><p style="font-size:30px;font-weight:500;line-height:1.2;color:#F4EFE6;background:rgba(243,239,230,0.06);border:1px solid #3A3A40;border-radius:12px;padding:18px 26px">Your quality controller</p><p style="font-size:30px;font-weight:500;line-height:1.2;color:#F4EFE6;background:rgba(243,239,230,0.06);border:1px solid #3A3A40;border-radius:12px;padding:18px 26px">Your writer</p>
+</div>
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px">
+<p style="font-size:34px;color:#8A8A94">+&#160;</p><p style="font-size:30px;font-weight:700;line-height:1.2;color:#1B1B1D;background:#FFD21E;border:1px solid #FFD21E;border-radius:12px;padding:18px 26px">You</p><p style="font-size:30px;font-weight:700;line-height:1.2;color:#1B1B1D;background:#FFD21E;border:1px solid #FFD21E;border-radius:12px;padding:18px 26px">Your teammates</p><p style="font-size:30px;font-weight:500;line-height:1.2;color:#F4EFE6;background:rgba(243,239,230,0.06);border:1px solid #3A3A40;border-radius:12px;padding:18px 26px">Their agents</p>
+</div>
+</div>
+
+</section>
+    <!-- === 01 A TEAM: msgboard as a whole. The picture is Andi's screenshot of the #voice-agent channel (17 Nov 2026):
+     channels on the left, direct messages with agents, people and agents posting in the same threads. === -->
+<section class="slide mine" data-id="msgboard-wide" data-keynote="keep" aria-label="A team chat with agents in it" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:70px 100px 110px;display:flex;flex-direction:row;gap:56px">
+<div class="reveal" style="--d:0;flex:1;display:flex;flex-direction:column;justify-content:space-between;gap:28px">
+<div style="display:flex;flex-direction:column;gap:20px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">01 · A team</p>
+<h2 style="font-family:'Anton', Arial, sans-serif;font-size:100px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">A team chat with <span style="color:#FFD21E">agents in it</span></h2>
+</div>
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid #3A3A40;padding:18px 0px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;letter-spacing:3px;text-transform:uppercase;color:#FFD21E">Channels</p><p style="font-size:30px;line-height:1.3;color:#F4EFE6">One per project</p></div>
+<div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid #3A3A40;padding:18px 0px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;letter-spacing:3px;text-transform:uppercase;color:#FFD21E">Direct messages</p><p style="font-size:30px;line-height:1.3;color:#F4EFE6">With people, and with agents</p></div>
+<div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:18px 0px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;letter-spacing:3px;text-transform:uppercase;color:#FFD21E">Threads</p><p style="font-size:30px;line-height:1.3;color:#F4EFE6">Agents answer each other</p></div>
+</div>
+</div>
+<div class="reveal" style="--d:1;width:1165px;flex:none;display:flex;flex-direction:column;justify-content:center">
+<img src="media/keynote/msgboard-wide.webp" alt="The msgboard app: a sidebar with channels and direct messages, and the voice-agent channel where people and agents post messages with long reply threads" style="width:1165px;height:900px;object-fit:cover;object-position:left top;border-radius:12px;border:1px solid #3A3A40">
+</div>
+<div class="chrome reveal" style="--d:8"><span>msgboard · masterminded by Leandro</span><span class="num"></span></div>
+</section>
+    <!-- === 01 A TEAM: msgboard, the team chat where people and agents work together. The rows are quoted from one
+     thread in #voice-agent, Wednesday 11 November 2026 (Leandro's message #343 and eight of its replies, shortened,
+     cuts marked with …). === -->
+<section class="slide mine" data-id="msgboard" data-keynote="keep" aria-label="Agents talking to each other" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:110px 128px 150px;display:flex;flex-direction:column;justify-content:space-between;gap:24px">
+<div class="reveal" style="--d:0;display:flex;flex-direction:column;gap:20px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">01 · A team</p>
+<h2 style="font-family:'Anton', Arial, sans-serif;font-size:104px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">Agents talking to <span style="color:#FFD21E">each other</span></h2>
+</div>
+<div class="reveal" style="--d:1;display:flex;flex-direction:column;background:#121214;border:1px solid #3A3A40;border-radius:12px;padding:8px 40px 20px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;letter-spacing:2px;color:#8A8A94;padding:14px 0px"><span style="color:#F4EFE6">#&#160;voice-agent</span> &#160;·&#160; Wed, Nov 11 &#160;·&#160; one thread: <span style="color:#F4EFE6">48 replies</span>, <span style="color:#FFD21E">3 agents</span>, <span style="color:#F4EFE6">2 people</span>, 60 minutes</p>
+<div style="display:grid;grid-template-columns:130px 330px 1fr;gap:0px 24px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;letter-spacing:1px;color:#8A8A94;border-top:1px solid #3A3A40;padding:13px 0px">02:46 PM</p><p style="font-size:27px;font-weight:700;white-space:nowrap;color:#F4EFE6;border-top:1px solid #3A3A40;padding:13px 0px">leandro <span style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:16px;font-weight:400;letter-spacing:2px;color:#8A8A94">&#160;PERSON</span></p><p style="font-size:27px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#E8E6E1;border-top:1px solid #3A3A40;padding:13px 0px">i have an idea for a hf space … a pixel art scene of an interrogation room.</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;letter-spacing:1px;color:#8A8A94;border-top:1px solid #3A3A40;padding:13px 0px">02:46 PM</p><p style="font-size:27px;font-weight:700;white-space:nowrap;color:#FFD21E;border-top:1px solid #3A3A40;padding:13px 0px">voice-agent-cx <span style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:16px;font-weight:400;letter-spacing:2px;color:#8A8A94">&#160;AGENT</span></p><p style="font-size:27px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#E8E6E1;border-top:1px solid #3A3A40;padding:13px 0px">@voice-agent-cc Let’s split this: you lead the pixel-room mock-up …</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;letter-spacing:1px;color:#8A8A94;border-top:1px solid #3A3A40;padding:13px 0px">02:47 PM</p><p style="font-size:27px;font-weight:700;white-space:nowrap;color:#F4EFE6;border-top:1px solid #3A3A40;padding:13px 0px">Andi :) <span style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:16px;font-weight:400;letter-spacing:2px;color:#8A8A94">&#160;PERSON</span></p><p style="font-size:27px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#E8E6E1;border-top:1px solid #3A3A40;padding:13px 0px">@listener-cx also get in this action</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;letter-spacing:1px;color:#8A8A94;border-top:1px solid #3A3A40;padding:13px 0px">02:51 PM</p><p style="font-size:27px;font-weight:700;white-space:nowrap;color:#FFD21E;border-top:1px solid #3A3A40;padding:13px 0px">listener-cx <span style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:16px;font-weight:400;letter-spacing:2px;color:#8A8A94">&#160;AGENT</span></p><p style="font-size:27px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#E8E6E1;border-top:1px solid #3A3A40;padding:13px 0px">Three character directions: Ren Calder … Vera Vale … Orrin Pike, the too-helpful courier.</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;letter-spacing:1px;color:#8A8A94;border-top:1px solid #3A3A40;padding:13px 0px">03:06 PM</p><p style="font-size:27px;font-weight:700;white-space:nowrap;color:#FFD21E;border-top:1px solid #3A3A40;padding:13px 0px">voice-agent-cc <span style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:16px;font-weight:400;letter-spacing:2px;color:#8A8A94">&#160;AGENT</span></p><p style="font-size:27px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#E8E6E1;border-top:1px solid #3A3A40;padding:13px 0px">Revised room mock-up … OK to build this on top of cx’s PR #23?</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;letter-spacing:1px;color:#8A8A94;border-top:1px solid #3A3A40;padding:13px 0px">03:16 PM</p><p style="font-size:27px;font-weight:700;white-space:nowrap;color:#FFD21E;border-top:1px solid #3A3A40;padding:13px 0px">voice-agent-cx <span style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:16px;font-weight:400;letter-spacing:2px;color:#8A8A94">&#160;AGENT</span></p><p style="font-size:27px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#E8E6E1;border-top:1px solid #3A3A40;padding:13px 0px">@codex-listener Reviewed PR #24 … one P2 to fix before merging.</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;letter-spacing:1px;color:#8A8A94;border-top:1px solid #3A3A40;padding:13px 0px">03:16 PM</p><p style="font-size:27px;font-weight:700;white-space:nowrap;color:#F4EFE6;border-top:1px solid #3A3A40;padding:13px 0px">leandro <span style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:16px;font-weight:400;letter-spacing:2px;color:#8A8A94">&#160;PERSON</span></p><p style="font-size:27px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#E8E6E1;border-top:1px solid #3A3A40;padding:13px 0px">great - build!</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;letter-spacing:1px;color:#8A8A94;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:13px 0px">03:46 PM</p><p style="font-size:27px;font-weight:700;white-space:nowrap;color:#FFD21E;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:13px 0px">voice-agent-cx <span style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:16px;font-weight:400;letter-spacing:2px;color:#8A8A94">&#160;AGENT</span></p><p style="font-size:27px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#E8E6E1;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:13px 0px">Live, kept private: The Lark Job.</p>
+</div>
+</div>
+<div class="chrome reveal" style="--d:8"><span>msgboard · one thread in #voice-agent</span><span class="num"></span></div>
+</section>
+    <!-- === 01 A PERSONALITY, the payoff: the voice interrogation game a team of agents built on msgboard.
+     The clip (37 s, with sound) starts by itself when the slide opens and plays once: it is not muted, so the
+     page needs one key press or click before this slide, which any talk has had by then.
+     media/keynote/lark-room.jpg is the earlier still, kept as a fallback. === -->
+<section class="slide mine" data-id="lark" data-keynote="keep" aria-label="One hour later, a game" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:row;gap:56px">
+<div class="reveal" style="--d:0;width:560px;display:flex;flex-direction:column;justify-content:space-between;gap:32px">
+<div style="display:flex;flex-direction:column;gap:20px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">01 · A team</p>
+<h2 style="font-family:'Anton', Arial, sans-serif;font-size:112px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">One hour later, <span style="color:#FFD21E">a game</span></h2>
+</div>
+<div style="display:flex;flex-direction:column;gap:18px">
+<p style="font-size:30px;line-height:1.4;color:#F4EFE6">Hugging Face has been hacked. You suspect three agents, and have to interrogate them to find out the truth.</p>
+<p style="font-size:28px;line-height:1.4;color:#FFD21E">Humans brought the creativity and the direction. We steered the agents to make this fun.</p>
+<p style="font-size:28px;line-height:1.4;color:#B9B9C2">Agents wrote the mystery, designed the game, and wrote every line of code.</p>
+</div>
+</div>
+<div class="reveal" style="--d:1;flex:1;display:flex;flex-direction:column;gap:22px">
+<video src="media/keynote/lark-job.mp4" poster="media/keynote/lark-job.jpg" data-autoplay preload="none" playsinline aria-label="A voice interrogation in a pixel-art room: the same question is put to three suspects, who answer in three very different ways, and one is interrupted mid-sentence" style="width:1048px;height:589px;object-fit:cover;border-radius:12px;border:1px solid #3A3A40"></video>
+<div style="display:flex;gap:28px">
+<div style="flex:1;display:flex;gap:18px;align-items:center;border-top:1px solid #3A3A40;padding:16px 0px 0px 0px">
+<img src="media/keynote/ren-calder-idle.png" alt="" style="width:84px;height:84px;flex:none;image-rendering:pixelated">
+<div style="flex:1;display:flex;flex-direction:column;gap:4px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:20px;letter-spacing:2px;text-transform:uppercase;color:#FFD21E">Ren Calder</p><p style="font-size:25px;line-height:1.3;color:#F4EFE6">A showman. All ego, no brakes.</p></div>
+</div>
+<div style="flex:1;display:flex;gap:18px;align-items:center;border-top:1px solid #3A3A40;padding:16px 0px 0px 0px">
+<img src="media/keynote/vera-vale-idle.png" alt="" style="width:84px;height:84px;flex:none;image-rendering:pixelated">
+<div style="flex:1;display:flex;flex-direction:column;gap:4px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:20px;letter-spacing:2px;text-transform:uppercase;color:#FFD21E">Vera Vale</p><p style="font-size:25px;line-height:1.3;color:#F4EFE6">Never answers the question you asked.</p></div>
+</div>
+<div style="flex:1;display:flex;gap:18px;align-items:center;border-top:1px solid #3A3A40;padding:16px 0px 0px 0px">
+<img src="media/keynote/orrin-pike-idle.png" alt="" style="width:84px;height:84px;flex:none;image-rendering:pixelated">
+<div style="flex:1;display:flex;flex-direction:column;gap:4px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:20px;letter-spacing:2px;text-transform:uppercase;color:#FFD21E">Orrin Pike</p><p style="font-size:25px;line-height:1.3;color:#F4EFE6">Thrilled that somebody finally asked.</p></div>
+</div>
+</div>
+</div>
+<div class="chrome reveal" style="--d:8"><span></span><span class="num"></span></div>
+
+</section>
+    <section class="slide mine" data-id="talk" data-keynote="keep" aria-label="Agents need a voice" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:center;gap:40px">
+<p class="reveal" style="--d:0;font-family:'Anton', Arial, sans-serif;font-size:220px;font-weight:400;line-height:0.9;color:#FF9D00">02</p>
+<h1 class="reveal" style="--d:1;font-family:'Anton', Arial, sans-serif;font-size:150px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">Agents need<br><span style="color:#FFD21E">a voice</span></h1>
+<p class="reveal" style="--d:2;font-size:36px;line-height:1.35;color:#B9B9C2;width:1100px">Who they are, and how you talk to them.</p>
+
+</section>
+    <!-- === 02 A VOICE: what an agent is made of. The example is Vera Vale, one of the suspects in the game
+     (its character line, its voice and its tools are the game's own; nothing here gives the solution away). === -->
+<section class="slide mine" data-id="agentdef" data-keynote="keep" aria-label="An agent is a prompt, a voice and tools" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:36px">
+<div class="reveal" style="--d:0;display:flex;flex-direction:column;gap:20px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">02 · A voice</p>
+<h2 style="font-family:'Anton', Arial, sans-serif;font-size:104px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">An agent is a prompt, a voice and <span style="color:#FFD21E">tools</span></h2>
+</div>
+<div class="reveal" style="--d:1;flex:1;display:flex;gap:72px">
+<div style="flex:1;display:flex;flex-direction:column;justify-content:center">
+<div style="display:flex;gap:20px;align-items:center;padding:0px 0px 18px 0px"><img src="media/keynote/vera-vale-idle.png" alt="" style="width:72px;height:72px;flex:none;image-rendering:pixelated"><p style="font-size:30px;line-height:1.3;color:#B9B9C2"><b style="color:#F4EFE6">Vera Vale</b>, one of the suspects you just met</p></div>
+<div style="display:flex;gap:28px;align-items:baseline;border-top:1px solid #3A3A40;padding:20px 0px"><p style="width:170px;flex:none;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#FFD21E">A prompt</p><div style="flex:1;display:flex;flex-direction:column;gap:6px"><p style="font-size:32px;line-height:1.3;color:#F4EFE6">“You are a communications director who has not given a straight answer since 2009 …”</p><p style="font-size:24px;line-height:1.35;color:#8A8A94">who it is</p></div></div>
+<div style="display:flex;gap:28px;align-items:baseline;border-top:1px solid #3A3A40;padding:20px 0px"><p style="width:170px;flex:none;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#FFD21E">A voice</p><div style="flex:1;display:flex;flex-direction:column;gap:6px"><p style="font-size:32px;line-height:1.3;color:#F4EFE6">Serena: bright, measured, smiling</p><p style="font-size:24px;line-height:1.35;color:#8A8A94">how it sounds</p></div></div>
+<div style="display:flex;gap:28px;align-items:baseline;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:20px 0px"><p style="width:170px;flex:none;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#FFD21E">Tools</p><div style="flex:1;display:flex;flex-direction:column;gap:6px"><p style="font-size:32px;line-height:1.3;color:#F4EFE6"><span style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:30px">sweat() · slip()</span></p><p style="font-size:24px;line-height:1.35;color:#8A8A94">what it can do</p></div></div>
+</div>
+<div style="width:560px;display:flex;flex-direction:column;justify-content:center;gap:22px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;letter-spacing:3px;text-transform:uppercase;color:#8A8A94">Same recipe, other tools</p>
+<div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid #3A3A40;padding:18px 0px 0px 0px"><p style="font-size:28px;font-weight:700;line-height:1.3;color:#F4EFE6">The mascot on my desktop</p><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;line-height:1.5;color:#FFD21E">start_agent · get_status · steer_agent</p></div>
+<div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid #3A3A40;padding:18px 0px 0px 0px"><p style="font-size:28px;font-weight:700;line-height:1.3;color:#F4EFE6">The robot on this table</p><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;line-height:1.5;color:#FFD21E">move_head · dance · camera</p></div>
+</div>
+</div>
+<div class="chrome reveal" style="--d:8"><span>A voice</span><span class="num"></span></div>
+</section>
+    <!-- === 02 A VOICE: voice-agent, the desktop mascot that looks after coding agents. The clip (38 s, with sound) is
+     Andi's recording of it with Claude Code, with its title and end cards trimmed off. It starts by itself when
+     the slide opens and plays once. media/keynote/mascot-interruption.mp4 is the earlier stand-in loop. === -->
+<section class="slide mine" data-id="mascot" data-keynote="keep" aria-label="A Claude manager: just talk to it" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:100px 128px 140px;display:flex;flex-direction:column;justify-content:space-between;gap:28px">
+<div class="reveal" style="--d:0;display:flex;flex-direction:column;gap:18px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">02 · A voice</p>
+<h2 style="font-family:'Anton', Arial, sans-serif;font-size:84px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">A Claude manager: <span style="color:#FFD21E">just talk to it</span></h2>
+</div>
+<div class="reveal" style="--d:1;display:flex;justify-content:center">
+<video src="media/keynote/voice-agent.mp4" poster="media/keynote/voice-agent.jpg" data-autoplay preload="none" playsinline aria-label="A pixel-art mascot sits on top of the Claude desktop app. Andi asks by voice what they have been working on, what to look at first, and to open that chat; the mascot answers in speech bubbles and opens the chat" style="width:1228px;height:691px;flex:none;object-fit:cover;border-radius:12px;border:1px solid #3A3A40"></video>
+</div>
+<div class="chrome reveal" style="--d:8"><span>huggingface/voice-agent · Claude Code, Codex, OpenCode</span><span class="num"></span></div>
+</section>
+    <!-- === 02 A VOICE: typing against talking. The robot column comes back later, on slides/behind-robot.html. === -->
+<section class="slide mine" data-id="behind" data-keynote="keep" aria-label="Talking to agents has challenges" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;justify-content:space-between;gap:40px">
+<div class="reveal" style="--d:0;display:flex;flex-direction:column;gap:20px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">02 · A voice</p>
+<h2 style="font-family:'Anton', Arial, sans-serif;font-size:112px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">Talking to agents has challenges</h2>
+</div>
+<div class="reveal" style="--d:1;display:grid;grid-template-columns:300px 1fr 1fr;gap:0px 40px">
+<p style="padding:0px 0px 16px 0px"></p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#8A8A94;padding:0px 0px 16px 0px">Typing to an agent</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#FFD21E;padding:0px 0px 16px 0px">Talking to an agent</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8A8A94;border-top:1px solid #3A3A40;padding:26px 0px">Your turn ends</p>
+<p style="font-size:38px;line-height:1.35;color:#8A8A94;border-top:1px solid #3A3A40;padding:26px 0px">When you press send</p>
+<p style="font-size:38px;line-height:1.35;color:#F4EFE6;border-top:1px solid #3A3A40;padding:26px 0px">When it guesses you stopped</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8A8A94;border-top:1px solid #3A3A40;padding:26px 0px">You interrupt</p>
+<p style="font-size:38px;line-height:1.35;color:#8A8A94;border-top:1px solid #3A3A40;padding:26px 0px">Never needed</p>
+<p style="font-size:38px;line-height:1.35;color:#F4EFE6;border-top:1px solid #3A3A40;padding:26px 0px">It must stop talking</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8A8A94;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:26px 0px">It thinks</p>
+<p style="font-size:38px;line-height:1.35;color:#8A8A94;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:26px 0px">A spinner is fine</p>
+<p style="font-size:38px;line-height:1.35;color:#F4EFE6;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:26px 0px">Silence feels broken</p>
+</div>
+<div class="chrome reveal" style="--d:8"><span>A voice</span><span class="num"></span></div>
+</section>
+    <!-- === SPEECH-TO-SPEECH: our open library, from one command to a voice agent on your laptop === -->
+<section data-keynote="keep" class="slide" data-id="s2s" aria-label="Our library: speech-to-speech">
+    <div class="head">
+        <div class="kicker reveal" style="--d:0">02 · A voice · open source</div>
+        <h2 class="reveal" style="--d:1">Our library: <span class="hl">speech-to-speech</span></h2>
+        <p class="lede reveal" style="--d:2">Build voice agents with open-source models. It runs entirely on your computer: no API key, no cloud service.</p>
+    </div>
+    <div class="s2s-term reveal" style="--d:3">
+        <div><span class="p">$</span>pip install speech-to-speech</div>
+        <div><span class="p">$</span>speech-to-speech local</div>
+        <div class="o">Loading models…</div>
+        <div class="ok">Ready — start speaking.</div>
+    </div>
+    <div class="s2s-pipe reveal" style="--d:4">
+        <div class="st"><div class="k">VAD</div><b>Silero VAD</b><span>2 backends</span></div>
+        <i>→</i>
+        <div class="st"><div class="k">STT</div><b>Parakeet TDT</b><span>14 backends</span></div>
+        <i>→</i>
+        <div class="st"><div class="k">LLM</div><b>Qwen3.5-4B</b><span>local or any API</span></div>
+        <i>→</i>
+        <div class="st"><div class="k">TTS</div><b>Qwen3-TTS</b><span>11 backends</span></div>
+    </div>
+    <p class="s2s-note reveal" style="--d:5">The defaults; every stage is swappable. It speaks the <b>OpenAI Realtime protocol</b>, so apps built for OpenAI’s API can point at your own machine. Apache 2.0.</p>
+    <div class="serve-stats s2s-stats">
+        <div class="reveal" style="--d:3"><div class="v">13.6k</div><div class="k">GitHub stars</div></div>
+        <div class="reveal" style="--d:4"><div class="v">#1</div><div class="k">repository of the day on GitHub</div></div>
+        <div class="reveal" style="--d:5"><div class="v">12k+</div><div class="k">Reachy Minis talk through it</div></div>
+    </div>
+    <div class="chrome reveal" style="--d:8"><span><a class="gh" href="https://github.com/huggingface/speech-to-speech" target="_blank" rel="noopener">huggingface/speech-to-speech</a></span><span class="num"></span></div>
+</section>
+    <!-- === 02 A VOICE: hf-voice, the hosted speech-to-speech that Reachy Mini talks through, and everything else
+     that now talks through it. Numbers: from Andi, 16 November 2026. === -->
+<section class="slide mine" data-id="hfvoice" data-keynote="keep" aria-label="The same stack, hosted" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:110px 128px 150px;display:flex;flex-direction:column;justify-content:space-between;gap:28px">
+<div class="reveal" style="--d:0;display:flex;flex-direction:column;gap:20px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">02 · A voice</p>
+<h2 style="font-family:'Anton', Arial, sans-serif;font-size:104px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">The same stack, <span style="color:#FFD21E">hosted</span></h2>
+</div>
+<div class="reveal" style="--d:1;display:flex;align-items:center;gap:36px">
+<div style="width:430px;display:flex;flex-direction:column;gap:14px">
+<p style="font-size:30px;font-weight:500;line-height:1.2;color:#F4EFE6;background:rgba(243,239,230,0.06);border:1px solid #3A3A40;border-radius:12px;padding:18px 26px">A phone line</p>
+<p style="font-size:30px;font-weight:500;line-height:1.2;color:#F4EFE6;background:rgba(243,239,230,0.06);border:1px solid #3A3A40;border-radius:12px;padding:18px 26px">A suspect in a game</p>
+<p style="font-size:30px;font-weight:500;line-height:1.2;color:#F4EFE6;background:rgba(243,239,230,0.06);border:1px solid #3A3A40;border-radius:12px;padding:18px 26px">A mascot on your desktop</p>
+<p style="font-size:30px;font-weight:700;line-height:1.2;color:#1B1B1D;background:#FFD21E;border:1px solid #FFD21E;border-radius:12px;padding:18px 26px">A robot on your desk</p>
+</div>
+<p style="font-size:56px;color:#8A8A94">→</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;border:2px solid #FFD21E;border-radius:16px;padding:30px 36px;background:rgba(255,210,30,0.06)">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:22px;letter-spacing:3px;color:#F4EFE6">OUR VOICE HARNESS, HOSTED</p>
+<p style="font-family:'Anton', Arial, sans-serif;font-size:92px;line-height:1.0;color:#FFD21E">HF-VOICE</p>
+<p style="font-size:28px;line-height:1.4;color:#F4EFE6">Hears when you start and when you are done. Stops when you cut in. Calls your tools.</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:20px;letter-spacing:2px;color:#8A8A94">OPENAI REALTIME PROTOCOL</p>
+</div>
+<p style="font-size:56px;color:#8A8A94">→</p>
+<div style="width:440px;display:flex;flex-direction:column;gap:14px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:20px;letter-spacing:3px;text-transform:uppercase;color:#8A8A94">Open models</p>
+<p style="font-size:30px;font-weight:500;line-height:1.2;color:#F4EFE6;background:rgba(243,239,230,0.06);border:1px solid #3A3A40;border-radius:12px;padding:18px 26px">Nemotron 3.5 Transcribe</p>
+<p style="font-size:30px;font-weight:500;line-height:1.2;color:#F4EFE6;background:rgba(243,239,230,0.06);border:1px solid #3A3A40;border-radius:12px;padding:18px 26px">Gemma 4 31B</p>
+<p style="font-size:30px;font-weight:500;line-height:1.2;color:#F4EFE6;background:rgba(243,239,230,0.06);border:1px solid #3A3A40;border-radius:12px;padding:18px 26px">Qwen3-TTS</p>
+</div>
+</div>
+<div class="reveal" style="--d:2;display:flex;gap:40px">
+<div style="flex:1;display:flex;flex-direction:column;gap:6px;border-top:1px solid #3A3A40;padding:18px 0px 0px 0px"><p style="font-family:'Anton', Arial, sans-serif;font-size:84px;line-height:1.0;color:#FFD21E">12k+</p><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:20px;letter-spacing:2px;line-height:1.4;text-transform:uppercase;color:#B9B9C2">robots talk through it</p></div>
+<div style="flex:1;display:flex;flex-direction:column;gap:6px;border-top:1px solid #3A3A40;padding:18px 0px 0px 0px"><p style="font-family:'Anton', Arial, sans-serif;font-size:84px;line-height:1.0;color:#FFD21E">1 year</p><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:20px;letter-spacing:2px;line-height:1.4;text-transform:uppercase;color:#B9B9C2">of conversation every 2 weeks</p></div>
+<div style="flex:1;display:flex;flex-direction:column;gap:6px;border-top:1px solid #3A3A40;padding:18px 0px 0px 0px"><p style="font-family:'Anton', Arial, sans-serif;font-size:84px;line-height:1.0;color:#FFD21E">5¢</p><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:20px;letter-spacing:2px;line-height:1.4;text-transform:uppercase;color:#B9B9C2">per hour of conversation</p></div>
+<div style="flex:1;display:flex;flex-direction:column;gap:6px;border-top:1px solid #3A3A40;padding:18px 0px 0px 0px"><p style="font-family:'Anton', Arial, sans-serif;font-size:84px;line-height:1.0;color:#FFD21E">1.2 s</p><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:20px;letter-spacing:2px;line-height:1.4;text-transform:uppercase;color:#B9B9C2">from your last word to its first</p></div>
+</div>
+<div class="chrome reveal" style="--d:8"><span>hf-voice · hosted speech-to-speech on Hugging Face Endpoints · November 2026</span><span class="num"></span></div>
+</section>
+    <!-- === 03 A BODY: section divider, Reachy Mini on the right (the "usage" shot) === -->
+<section class="slide mine" data-id="body-open" data-scene="usage" data-keynote="keep" aria-label="Giving AI a body" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:center;gap:40px">
+<p class="reveal" style="--d:0;font-family:'Anton', Arial, sans-serif;font-size:220px;font-weight:400;line-height:0.9;color:#FF9D00">03</p>
+<h1 class="reveal" style="--d:1;font-family:'Anton', Arial, sans-serif;font-size:150px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6;width:1000px">Giving AI<br><span style="color:#FFD21E">a body</span></h1>
+<p class="reveal" style="--d:2;font-size:36px;line-height:1.35;color:#B9B9C2;width:900px">Agents that exist in the physical world.</p>
+
+</section>
+    <!-- === THE POLLEN FAMILY: all the robots on the table (keynote: one view, no zoom steps; then Microduck, then Reachy Mini) === -->
+<section data-keynote="keep" class="slide family" data-id="family" aria-label="The robots we make">
+    <div class="family-title">
+        <div class="kicker reveal" style="--d:0">Hugging Face × Pollen Robotics</div>
+    </div>
+    <svg class="family-lines" viewBox="0 0 1920 1080" aria-hidden="true"><g id="familyLines"></g></svg>
+    <div class="family-strip">
+        <div class="member reveal" style="--d:3" data-robot="reachy1">
+            <div class="yr">2020</div><div class="nm">Reachy</div>
+            <p>Open-source humanoid torso. Two arms, mobile base, and an expressive head.</p>
+        </div>
+        <div class="member reveal" style="--d:4" data-robot="reachy2">
+            <div class="yr">2024</div><div class="nm">Reachy 2</div>
+            <p>Enhanced version. 3 kg payload, VR teleoperation.</p>
+        </div>
+        <div class="member reveal" style="--d:5" data-robot="hand">
+            <div class="yr">2025</div><div class="nm">Amazing Hand</div>
+            <p>Humanoid hand. 8 DOF, 3D printed, low cost.</p>
+        </div>
+        <div class="member reveal" style="--d:6" data-robot="mini">
+            <div class="yr">2025</div><div class="nm">Reachy Mini</div>
+            <p>Desktop AI companion, 9 motors, apps on the HF Hub.</p>
+        </div>
+        <div class="member reveal" style="--d:7" data-robot="duck">
+            <div class="yr">2026</div><div class="nm">Microduck</div>
+            <p>Tiny biped. 15 servos, walking learned in simulation.</p>
+        </div>
+        <div class="member reveal" style="--d:8" data-robot="grabette gripette">
+            <div class="yr">2026</div><div class="nm">Grabette</div>
+            <p>Handheld gripper to record manipulation data. On a robotic arm, Gripette performs learned tasks.</p>
+        </div>
+    </div>
+    <div class="chrome reveal" style="--d:7">
+        <span class="repo">
+            <span data-only="0"><a class="gh" href="https://github.com/pollen-robotics" target="_blank" rel="noopener">pollen-robotics</a></span>
+            <span data-only="1"><a class="gh" href="https://github.com/pollen-robotics/reachy-sdk" target="_blank" rel="noopener">pollen-robotics/reachy-sdk</a> · <a href="https://github.com/pollen-robotics/reachy2-sdk" target="_blank" rel="noopener">reachy2-sdk</a></span>
+            <span data-only="2"><a class="gh" href="https://github.com/pollen-robotics/AmazingHand" target="_blank" rel="noopener">pollen-robotics/AmazingHand</a></span>
+            <span data-only="3"><a class="gh" href="https://github.com/pollen-robotics/grabette" target="_blank" rel="noopener">pollen-robotics/grabette</a></span>
+            <span data-only="4"><a class="gh" href="https://github.com/pollen-robotics/microduck" target="_blank" rel="noopener">pollen-robotics/microduck</a></span>
+            <span data-only="5"><a class="gh" href="https://github.com/pollen-robotics/reachy_mini" target="_blank" rel="noopener">pollen-robotics/reachy_mini</a></span>
+        </span>
+        <span class="num"></span>
+    </div>
+</section>
+    <!-- === MICRODUCK: the camera flies from the family table to the duck (family focus step 4) === -->
+<section data-keynote="keep" class="slide duck" data-id="microduck" data-scene="family.4" aria-label="Microduck">
+    <div class="duck-panel">
+        <div class="kicker reveal" style="--d:0">Microduck · 2026 · $399</div>
+        <h2 class="reveal" style="--d:1">Learns to walk in <span class="hl">simulation</span></h2>
+        <div class="specs reveal" style="--d:2">
+            <div><div class="k">Size</div><div class="v">25 cm · 800 g</div></div>
+            <div><div class="k">Motors</div><div class="v">15 servos · 50 Hz</div></div>
+            <div><div class="k">Senses</div><div class="v">Camera · depth</div></div>
+            <div><div class="k">Tricks</div><div class="v">Walks, gets up, grabs</div></div>
+        </div>
+    </div>
+    <div class="chrome reveal" style="--d:6"><span><a class="gh" href="https://github.com/pollen-robotics/microduck" target="_blank" rel="noopener">pollen-robotics/microduck</a></span><span class="num"></span></div>
+</section>
+    <!-- === 03 REACHY MINI: the camera slides along the family table from the duck to Reachy Mini (family focus step 5) === -->
+<section data-keynote="keep" class="slide duck" data-id="mini-open" data-scene="family.5" aria-label="Reachy Mini">
+    <div class="duck-panel">
+        <div class="kicker reveal" style="--d:0">A body · Reachy Mini</div>
+        <h2 class="reveal" style="--d:1"><span class="sec">03</span> Reachy Mini</h2>
+        <p class="lede reveal" style="--d:2">A robot for conversations, games and play. Built to be talked to, not to pick things up.</p>
+    </div>
+    <div class="chrome reveal" style="--d:6"><span><a class="gh" href="https://github.com/pollen-robotics/reachy_mini" target="_blank" rel="noopener">pollen-robotics/reachy_mini</a></span><span class="num"></span></div>
+</section>
+    <!-- === 4.1 EXPLODED VIEW: main components === -->
+<section data-keynote="keep" class="slide" data-id="inside" data-scene="exploded" aria-label="Exploded view">
+    <div class="focus-panel">
+        <div class="kicker reveal" style="--d:0">Exploded view</div>
+        <h2 class="reveal" style="--d:1">What's<br>inside</h2>
+        <div class="rows">
+            <div class="row reveal" style="--d:3"><span>Motors</span><span>9 Dynamixel servos</span></div>
+            <div class="row reveal" style="--d:4"><span>Sensors</span><span>Wide camera · 4 mics</span></div>
+            <div class="row reveal" style="--d:5"><span>Audio</span><span>5 W speaker</span></div>
+            <div class="row reveal" style="--d:6"><span>Wireless</span><span>Raspberry Pi CM4 · battery</span></div>
+        </div>
+        <p class="note reveal" style="--d:7">Reachy Mini <b>Wireless</b> runs on board on a Raspberry Pi CM4 with a 2000 mAh battery. Reachy Mini <b>Lite</b> is driven over USB from your computer.</p>
+    </div>
+    <div class="chrome reveal" style="--d:8"><span>Reachy Mini · Hardware</span><span class="num"></span></div>
+</section>
+    <!-- === 03 A BODY: the same table as slides/behind.html, with the robot column added. === -->
+<section class="slide mine" data-id="behind-robot" data-keynote="keep" aria-label="Now give it a body" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;justify-content:space-between;gap:40px">
+<div class="reveal" style="--d:0;display:flex;flex-direction:column;gap:20px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">03 · A body</p>
+<h2 style="font-family:'Anton', Arial, sans-serif;font-size:112px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">Now give it a body</h2>
+</div>
+<div class="reveal" style="--d:1;display:grid;grid-template-columns:300px 1fr 1fr 1fr;gap:0px 40px">
+<p style="padding:0px 0px 16px 0px"></p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#8A8A94;padding:0px 0px 16px 0px">Typing to an agent</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#8A8A94;padding:0px 0px 16px 0px">Talking to an agent</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#FFD21E;padding:0px 0px 16px 0px">Talking to a robot</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8A8A94;border-top:1px solid #3A3A40;padding:20px 0px">Your turn ends</p>
+<p style="font-size:30px;line-height:1.35;color:#8A8A94;border-top:1px solid #3A3A40;padding:20px 0px">When you press send</p>
+<p style="font-size:30px;line-height:1.35;color:#B9B9C2;border-top:1px solid #3A3A40;padding:20px 0px">When it guesses you stopped</p>
+<p style="font-size:30px;line-height:1.35;color:#F4EFE6;border-top:1px solid #3A3A40;padding:20px 0px">When it guesses, while showing it listens</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8A8A94;border-top:1px solid #3A3A40;padding:20px 0px">You interrupt</p>
+<p style="font-size:30px;line-height:1.35;color:#8A8A94;border-top:1px solid #3A3A40;padding:20px 0px">Never needed</p>
+<p style="font-size:30px;line-height:1.35;color:#B9B9C2;border-top:1px solid #3A3A40;padding:20px 0px">It must stop talking</p>
+<p style="font-size:30px;line-height:1.35;color:#F4EFE6;border-top:1px solid #3A3A40;padding:20px 0px">It must stop talking and moving</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8A8A94;border-top:1px solid #3A3A40;padding:20px 0px">It thinks</p>
+<p style="font-size:30px;line-height:1.35;color:#8A8A94;border-top:1px solid #3A3A40;padding:20px 0px">A spinner is fine</p>
+<p style="font-size:30px;line-height:1.35;color:#B9B9C2;border-top:1px solid #3A3A40;padding:20px 0px">Silence feels broken</p>
+<p style="font-size:30px;line-height:1.35;color:#F4EFE6;border-top:1px solid #3A3A40;padding:20px 0px">Silence and stillness feel broken</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8A8A94;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:20px 0px">Attention</p>
+<p style="font-size:30px;line-height:1.35;color:#8A8A94;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:20px 0px">Not a question</p>
+<p style="font-size:30px;line-height:1.35;color:#B9B9C2;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:20px 0px">Not a question</p>
+<p style="font-size:30px;line-height:1.35;color:#F4EFE6;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:20px 0px">It must look at whoever is speaking</p>
+</div>
+<div class="chrome reveal" style="--d:8"><span>A body</span><span class="num"></span></div>
+</section>
+    <section class="slide mine" data-id="natural" data-scene="natural" data-keynote="keep" aria-label="No robot you can talk to feels natural yet" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:center;gap:40px">
+<p class="reveal" style="--d:0;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">My opinion</p>
+<h1 class="reveal" style="--d:1;font-family:'Anton', Arial, sans-serif;font-size:124px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6;width:940px">No robot you<br>can talk to<br>feels <span style="color:#FFD21E">natural</span><br>yet</h1>
+<p class="reveal" style="--d:2;font-size:36px;line-height:1.35;color:#B9B9C2;width:900px">Robots are socially awkward. How do we make them friendly?</p>
+</section>
+    <section class="slide mine" data-id="loops" data-keynote="keep" aria-label="A fast body, a slow brain" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;justify-content:space-between;gap:40px">
+<div class="reveal" style="--d:0;display:flex;flex-direction:column;gap:20px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">Design principle</p>
+<h2 style="font-family:'Anton', Arial, sans-serif;font-size:112px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">A fast body,<br>a slow brain</h2>
+</div>
+<div class="reveal" style="--d:1;display:flex;gap:64px">
+<div style="flex:1;display:flex;flex-direction:column;gap:8px;border-top:2px solid #FFD21E;padding:24px 0px 0px 0px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#FFD21E">Fast loop · on the robot</p>
+<p style="font-family:'Anton', Arial, sans-serif;font-size:88px;line-height:1.05;text-transform:uppercase;color:#FFD21E">Milliseconds</p>
+<p style="font-size:30px;line-height:1.6;color:#F4EFE6">Hears you start talking, locally<br>Turns toward the voice, follows your face<br>Moves along with its own speech<br>Stops the moment you interrupt</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:8px;border-top:2px solid #3A3A40;padding:24px 0px 0px 0px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:3px;text-transform:uppercase;color:#8A8A94">Slow loop · the backend</p>
+<p style="font-family:'Anton', Arial, sans-serif;font-size:88px;line-height:1.05;text-transform:uppercase;color:#F4EFE6">Seconds</p>
+<p style="font-size:30px;line-height:1.6;color:#B9B9C2">Decides your turn is over<br>Transcribes what you said<br>Thinks, calls tools, writes the answer<br>Speaks it, maybe with a dance</p>
+</div>
+</div>
+<p class="reveal" style="--d:2;font-size:36px;font-style:italic;font-weight:500;line-height:1.3;color:#F4EFE6">The body has to react before the brain has an answer.</p>
+<div class="chrome reveal" style="--d:8"><span>A body</span><span class="num"></span></div>
+</section>
+    <section class="slide mine" data-id="tools" data-keynote="keep" aria-label="The body is a set of tools" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div class="reveal" style="--d:0;display:flex;flex-direction:column;gap:20px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">For agent builders</p>
+<h2 style="font-family:'Anton', Arial, sans-serif;font-size:112px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">The body is a set of <span style="color:#FFD21E">tools</span></h2>
+</div>
+<div class="reveal" style="--d:1;flex:1;display:flex;gap:64px">
+<div style="flex:1;display:flex;flex-direction:column;justify-content:space-between">
+<div style="display:flex;gap:24px;align-items:baseline;border-top:1px solid #3A3A40;padding:16px 0px"><p style="width:150px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8A8A94">Body</p><p style="flex:1;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;line-height:1.6;color:#F4EFE6">move_head · head_tracking · sweep_look · dance · play_emotion · go_to_sleep</p></div>
+<div style="display:flex;gap:24px;align-items:baseline;border-top:1px solid #3A3A40;padding:16px 0px"><p style="width:150px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8A8A94">Senses</p><p style="flex:1;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;line-height:1.6;color:#F4EFE6">camera · robot_status · volume_control</p></div>
+<div style="display:flex;gap:24px;align-items:baseline;border-top:1px solid #3A3A40;padding:16px 0px"><p style="width:150px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8A8A94">Memory</p><p style="flex:1;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;line-height:1.6;color:#F4EFE6">remember · forget</p></div>
+<div style="display:flex;gap:24px;align-items:baseline;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:16px 0px"><p style="width:150px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#FFD21E">MCP</p><p style="flex:1;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;line-height:1.6;color:#FFD21E">search_web · get_weather · get_time</p></div>
+<p style="font-size:30px;line-height:1.4;color:#B9B9C2">A personality is a prompt plus a list of tools. Web tools are MCP servers hosted as Spaces.</p>
+</div>
+<div style="width:700px;display:flex;flex-direction:column;justify-content:center;background:#121214;border:1px solid #3A3A40;border-radius:12px;padding:36px 44px;font-family:'JetBrains Mono', 'Courier New', monospace;color:#E8E6E1">
+<p style="font-size:24px;line-height:1.5;white-space:nowrap;color:#8A8A94">profiles/guide/profile.md</p>
+<p style="font-size:26px;line-height:1.45;white-space:nowrap;color:#8A8A94">+++</p>
+<p style="font-size:26px;line-height:1.45;white-space:nowrap">schema_version = <span style="color:#FFD21E">1</span></p>
+<p style="font-size:26px;line-height:1.45;white-space:nowrap">voice = <span style="color:#FFD21E">"Aiden"</span></p>
+<p style="font-size:26px;line-height:1.45;white-space:nowrap">default_tools = [</p>
+<p style="font-size:26px;line-height:1.45;white-space:nowrap">&#160;&#160;<span style="color:#FFD21E">"dance"</span>, <span style="color:#FFD21E">"camera"</span>,</p>
+<p style="font-size:26px;line-height:1.45;white-space:nowrap">&#160;&#160;<span style="color:#FFD21E">"sweep_look"</span>,</p>
+<p style="font-size:26px;line-height:1.45;white-space:nowrap">]</p>
+<p style="font-size:26px;line-height:1.45;white-space:nowrap;color:#8A8A94">+++</p>
+<p style="font-size:26px;line-height:1.45;white-space:nowrap;color:#FF9D00">## Identity</p>
+<p style="font-size:26px;line-height:1.45;white-space:nowrap">You are a concise, friendly</p>
+<p style="font-size:26px;line-height:1.45;white-space:nowrap">robot guide.</p>
+</div>
+</div>
+<div class="chrome reveal" style="--d:8"><span>A body · reachy_mini_conversation_app</span><span class="num"></span></div>
+</section>
+    <!-- === 03 A BODY: the conversation, recorded (a live conversation in a 400-seat room is too fragile).
+     Swap in a longer clip with sound when there is one: add data-click instead of "muted loop data-autoplay". === -->
+<section class="slide mine" data-id="demo" data-keynote="keep" aria-label="Talking to Reachy Mini" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:row;gap:56px">
+<div class="reveal" style="--d:0;width:560px;display:flex;flex-direction:column;justify-content:space-between;gap:32px">
+<div style="display:flex;flex-direction:column;gap:20px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">03 · A body</p>
+<h2 style="font-family:'Anton', Arial, sans-serif;font-size:112px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6">Talking to <span style="color:#FFD21E">Reachy Mini</span></h2>
+</div>
+<div style="display:flex;flex-direction:column">
+<p style="font-size:30px;line-height:1.4;color:#F4EFE6;border-top:1px solid #3A3A40;padding:16px 0px">It turns to whoever is speaking</p>
+<p style="font-size:30px;line-height:1.4;color:#F4EFE6;border-top:1px solid #3A3A40;padding:16px 0px">It stops when you cut in</p>
+<p style="font-size:30px;line-height:1.4;color:#F4EFE6;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:16px 0px">It answers in your language</p>
+</div>
+</div>
+<div class="reveal" style="--d:1;flex:1;display:flex;flex-direction:column;justify-content:center;gap:28px">
+<video src="media/clips/reachy-mini-conversation.mp4" poster="media/clips/reachy-mini-conversation.jpg" muted loop data-autoplay preload="none" playsinline aria-label="Andi talks with a Reachy Mini on a desk; the robot turns to look while Andi speaks" style="width:1048px;height:589px;object-fit:cover;border-radius:12px;border:1px solid #3A3A40"></video>
+</div>
+<div class="chrome reveal" style="--d:8"><span>A body · Reachy Mini conversation app</span><span class="num"></span></div>
+</section>
+    <!-- === 06 COMMUNITY: the world map, dots popping up everywhere, four numbers === -->
+<section data-keynote="keep" class="slide" data-id="numbers" data-scene="community" aria-label="A platform people use">
+    <div class="head">
+        <div class="kicker reveal" style="--d:0">A body · Community</div>
+        <h2 class="reveal" style="--d:1">A platform people use</h2>
+    </div>
+    <div class="stats grid4">
+        <div class="stat reveal" style="--d:2"><div class="v">12k+</div><div class="k">robots shipped</div></div>
+        <div class="stat reveal" style="--d:3"><div class="v">13k+</div><div class="k">on <a href="https://discord.gg/2bAhWfXme9" target="_blank" rel="noopener">Discord</a></div></div>
+        <div class="stat reveal" style="--d:4"><div class="v">700</div><div class="k">apps on the Hub</div></div>
+        <div class="stat reveal" style="--d:5"><div class="v">80k+</div><div class="k">hours of conversation since April</div></div>
+    </div>
+    <div class="chrome reveal" style="--d:6"><span>Pollen Robotics, Hugging Face Hub and hf-voice · November 2026</span><span class="num"></span></div>
+</section>
+    <!-- === Close: the three together. Reachy Mini close up on the right (the "natural" shot). === -->
+<section class="slide mine" data-id="dream" data-scene="natural" data-keynote="keep" aria-label="Out of the text box" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:center;gap:44px">
+<p class="reveal" style="--d:0;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:#FF9D00">Where this goes</p>
+<h1 class="reveal" style="--d:1;font-family:'Anton', Arial, sans-serif;font-size:150px;font-weight:400;line-height:0.95;text-transform:uppercase;color:#F4EFE6;width:940px">Out of the<br><span style="color:#FFD21E">text box</span></h1>
+<div class="reveal" style="--d:2;display:flex;flex-direction:column;width:900px">
+<p style="font-size:38px;line-height:1.3;color:#F4EFE6;border-top:1px solid #3A3A40;padding:18px 0px"><span style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#8A8A94">01&#160;&#160;</span>Agents that are part of the team.</p>
+<p style="font-size:38px;line-height:1.3;color:#F4EFE6;border-top:1px solid #3A3A40;padding:18px 0px"><span style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#8A8A94">02&#160;&#160;</span>Agents that answer when you speak.</p>
+<p style="font-size:38px;line-height:1.3;color:#FFD21E;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:18px 0px"><span style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#FFD21E">03&#160;&#160;</span>Agents that look back at you.</p>
+</div>
+
+</section>
+    <section class="slide mine" data-id="questions" data-keynote="keep" aria-label="Questions?" style="color:#F4EFE6;font-family:'DM Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:row;gap:96px">
+<div class="reveal" style="--d:0;position:absolute;left:0px;bottom:0px;width:1920px;height:8px;background:linear-gradient(90deg, #FFD21E, #FF9D00, #DB3328, #9747FF, #496EF0, #009B3A)"></div>
+<div class="reveal" style="--d:1;flex:1;display:flex;flex-direction:column;justify-content:space-between;gap:40px">
+<div style="display:flex;flex-direction:column;gap:28px">
+<h1 style="font-family:'Anton', Arial, sans-serif;font-size:170px;font-weight:400;line-height:0.9;text-transform:uppercase;color:#FFD21E">Questions?</h1>
+<p style="font-size:40px;line-height:1.3;color:#F4EFE6">Give your agents a team, a voice and a body.</p>
+</div>
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:32px;border-top:1px solid #3A3A40;padding:16px 0px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8A8A94">A voice</p><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:30px;text-align:right;color:#FFD21E">pip install speech-to-speech</p></div>
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:32px;border-top:1px solid #3A3A40;padding:16px 0px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8A8A94">A body</p><p style="font-size:32px;text-align:right;color:#F4EFE6">huggingface.co/reachy-mini</p></div>
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:32px;border-top:1px solid #3A3A40;padding:16px 0px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8A8A94">E-mail</p><p style="font-size:32px;text-align:right;color:#F4EFE6">andres.marafioti@huggingface.co</p></div>
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:32px;border-top:1px solid #3A3A40;border-bottom:1px solid #3A3A40;padding:16px 0px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;letter-spacing:2px;text-transform:uppercase;color:#8A8A94">X · GitHub</p><p style="font-size:32px;text-align:right;color:#F4EFE6">@andimarafioti</p></div>
+</div>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;line-height:1.5;color:#8A8A94">Thanks to Leandro and the agents on msgboard, and to Fabien Danieau and the Pollen Robotics team. 3D scene, slide design and some material from Fabien’s Reachy Mini talk, <a href="https://github.com/FabienDanieau/reachy_mini_intro" target="_blank" rel="noopener" style="color:inherit">FabienDanieau/reachy_mini_intro</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a>.</p>
+</div>
+<div class="reveal" style="--d:2;width:440px;display:flex;flex-direction:column;justify-content:center;gap:32px">
+<img src="media/london/andi.jpg" alt="Andi Marafioti" style="width:440px;height:383px;object-fit:cover;border-radius:12px">
+<div style="display:flex;gap:24px;align-items:center">
+<img src="media/london/vlm-book.png" alt="Cover of the O’Reilly book Vision Language Models" style="width:150px;height:197px;object-fit:cover;border-radius:6px">
+<p style="font-size:26px;line-height:1.4;color:#B9B9C2">Co-author of <i>Vision Language Models</i>, O’Reilly</p>
+</div>
+</div>
+
+</section>
+
+    <!-- === 3D-ANCHORED OVERLAY (slide 2 labels + leader line) === -->
+    <div class="overlay" id="overlay">
+        <svg viewBox="0 0 1920 1080">
+            <polyline class="leader" id="leader" points=""/>
+            <circle class="leader-ring" id="leaderRing" r="34" cx="0" cy="0"/>
+            <circle class="leader-halo" id="leaderHalo" r="58" cx="0" cy="0"/>
+            <circle class="leader-dot" id="leaderDot" r="6" cx="0" cy="0"/>
+        </svg>
+        <div id="partLabels"></div>
+        <div id="trackBox"><span>Object</span></div>
+    </div>
+</main>
+</div>
+<div class="progress" id="progress"></div>
+
+<!-- Boot: insert the slide files, then run the scripts in order (the scene is an ES module). -->
+<script type="module">
+const parts = [...document.querySelectorAll('[data-include]')];
+const html = await Promise.all(parts.map(el => fetch(el.dataset.include, { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(`${el.dataset.include}: ${r.status}`); return r.text(); })));
+parts.forEach((el, i) => { el.outerHTML = html[i]; });
+for (const name of ['deck', 'map']) {
+    await new Promise((ok, fail) => document.body.append(Object.assign(document.createElement('script'), { src: `js/${name}.js`, onload: ok, onerror: () => fail(new Error(`js/${name}.js`)) })));
+}
+await import('./js/scene.js');
+</script>
+</body>
+</html>
