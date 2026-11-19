@@ -11,6 +11,9 @@ accent colours; the light theme switch removed. See HOW-TO-PRESENT.txt to run it
 
 ## Licence and credits
 
+The hoverboard model (`assets/hoverboard.glb`) is Pollen Robotics' design, taken from Thibaud Frere's simulator Space,
+https://huggingface.co/spaces/tfrere/reachy-mini-hoverboard-sim.
+
 The slides, layout and code are shared under CC BY 4.0, like Fabien's deck they adapt.
 
 Photos and video clips in `media/` belong to their owners and are only shown to illustrate the talk; they are not

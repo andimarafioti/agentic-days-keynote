@@ -19,7 +19,7 @@ const ACCENT = new THREE.Color(0xff9d00); // Hugging Face orange
 // camera glow, dim: canvas opacity, fam: family set 0..1 (fades between family and studio),
 // set: studio | family | none, mark: leader line to
 // 'cam' or 'mic' ('' for none). Every shot has every key, so any two can be blended.
-const S = o => ({ pos: [0, 0, 0], target: [-0.24, 0.19, 0], cam: [-0.40, 0.30, 1.30], explode: 0, yaw: 0.35, idle: 1, ant: 1, ghost: 0, headGhost: 0, gears: 0, cloud: 0, focus: 0, scale: 1, dim: 1, fam: 0, shadow: 1, set: 'studio', mark: '', ...o });
+const S = o => ({ pos: [0, 0, 0], target: [-0.24, 0.19, 0], cam: [-0.40, 0.30, 1.30], explode: 0, yaw: 0.35, idle: 1, ant: 1, ghost: 0, headGhost: 0, gears: 0, cloud: 0, focus: 0, scale: 1, dim: 1, fam: 0, shadow: 1, hover: 0, set: 'studio', mark: '', ...o });
 const HERO = S({});
 const NONE = S({ set: 'none', dim: 0 });
 const SHOTS = {
@@ -43,6 +43,8 @@ const SHOTS = {
     sense: [S({ target: [0.45, 0.05, 0.09], cam: [0.86, 2.18, 1.86], yaw: 0, idle: 0.15, ant: 0.5 })],
     stack: S({ target: [-0.42, 0.17, 0], cam: [-0.62, 0.30, 1.40], yaw: 0.45, dim: 0.28 }),
     usage: S({ target: [-0.30, 0.17, 0], cam: [-0.55, 0.34, 1.25], yaw: 0.6 }),
+    // Keynote: Reachy Mini riding its hoverboard (the wheeled-base accessory), on the right.
+    hoverboard: S({ target: [-0.34, 0.17, 0], cam: [-0.60, 0.30, 1.62], yaw: -0.15, hover: 1 }),
     // API: the robot stays put, the camera swings round it. Python (code on the robot): robot on the right, its
     // head see-through with gears turning inside. JavaScript (remote): robot on the left, opaque again.
     api: [S({ target: [-0.24, 0.19, 0], cam: [-0.38, 0.32, 1.32], headGhost: 1, gears: 1 }), S({ target: [0.24, 0.19, 0], cam: [0.50, 0.32, 1.26], cloud: 1 })],
@@ -115,6 +117,25 @@ const robot = new Reachy(gltf.scene);
 const contact = makeShadow(); // the soft contact shadow, faded by each shot's `shadow`
 robot.group.add(contact);
 scene.add(robot.group);
+/* --- Hoverboard: the self-balancing two-wheel base Reachy Mini rides on shots with `hover` --- */
+// The model is Pollen's CAD in metres (assets/hoverboard.glb, from the tfrere/reachy-mini-hoverboard-sim Space),
+// with its origin on the chassis and one node per wheel. The robot's foot sits 5.4 mm under that origin.
+const hbGltf = await loadGLB('assets/hoverboard.glb');
+const hbBoard = hbGltf.scene;
+hbBoard.traverse(o => { if (o.isMesh) { o.castShadow = true; o.material = o.material.clone(); o.material.roughness = 0.55; if (o.material.color.getHSL({}).l < 0.08) o.material.color.setScalar(0.085); } });
+const hbPivot = new THREE.Group(); hbPivot.add(hbBoard);
+robot.group.add(hbPivot);
+hbPivot.updateWorldMatrix(true, true);
+const hbBox = new THREE.Box3().setFromObject(hbBoard, true); // precise: the tilted wheels would inflate a loose box
+const HB_AXLE = -hbBox.min.y;            // chassis origin above the floor when the wheels touch it
+const HB_LIFT = HB_AXLE - 0.0054;        // how far the robot is raised to stand on the bed
+const HB_R = HB_AXLE;                    // rolling radius, for turning the wheels
+hbBoard.position.y = HB_AXLE;
+hbPivot.visible = false;
+const hbWheels = ['wheel_left', 'wheel_right'].map(n => hbBoard.getObjectByName(n)).filter(Boolean).map(node => ({ node, rest: node.quaternion.clone() }));
+const hbQ = new THREE.Quaternion(), HB_X = new THREE.Vector3(1, 0, 0);
+const HB_YAW = 0; // the board's heading relative to the robot's
+window.__hb = { box: hbBox, axle: HB_AXLE, wheels: hbWheels.length };
 const pose = { p: new THREE.Vector3(), q: new THREE.Quaternion(), ant: [0, 0], yaw: 0 };
 robot.setPose(pose);
 robot.group.updateWorldMatrix(true, true);
@@ -927,7 +948,9 @@ for (const g of [family, scoutRig]) {
 // The first visit to the family slide drew every material in two new states at once (studio and family lights
 // together while the fade runs, then family lights alone), which froze the page for seconds on arrival. Compile
 // all three states here, while the opening slides are up, and end back in the studio state the cover uses.
+hbPivot.visible = true; // its materials compile now too, under the studio lights
 for (const f of [0.75, 1, 0]) { applyFam(f); renderer.compile(scene, camera); }
+hbPivot.visible = false;
 
 /* --- Frame loop --- */
 const euler = new THREE.Euler();
@@ -987,6 +1010,23 @@ function frame(ms) {
     contact.material.opacity = s.shadow;
     robot.group.scale.setScalar(s.scale);
     robot.setYaw(s.yaw);
+    // Hoverboard: the robot stands on the board and the pair rolls into place from behind, wheels turning,
+    // then balances, rocking a little.
+    {
+        const h = s.hover, roll = smooth(Math.min(1, Math.max(0, (h - 0.3) / 0.7)));
+        hbPivot.visible = h > 0.01;
+        robot.root.position.set(0, hbPivot.visible ? HB_LIFT : 0, 0);
+        if (hbPivot.visible) {
+            const along = 0.012 * Math.sin(t * 1.3) * roll - 0.6 * (1 - roll); // metres along the board's heading
+            hbPivot.rotation.y = robot.root.rotation.y + HB_YAW;
+            const fx = Math.sin(hbPivot.rotation.y), fz = Math.cos(hbPivot.rotation.y);
+            hbPivot.position.set(fx * along, 0, fz * along);
+            robot.root.position.x = fx * along; robot.root.position.z = fz * along;
+            contact.position.x = fx * along; contact.position.z = fz * along;
+            const a = along / HB_R;
+            for (const w of hbWheels) w.node.quaternion.copy(w.rest).multiply(hbQ.setFromAxisAngle(HB_X, a));
+        } else { contact.position.x = contact.position.z = 0; }
+    }
     robot.setPose(pose);
     robot.setExplode(s.explode);
     const shellOpacity = 1 - 0.75 * Math.max(s.explode, s.ghost), headOpacity = Math.min(shellOpacity, 1 - 0.8 * s.headGhost);
