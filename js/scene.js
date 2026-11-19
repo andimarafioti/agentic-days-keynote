@@ -130,11 +130,53 @@ const hbBox = new THREE.Box3().setFromObject(hbBoard, true); // precise: the til
 const HB_AXLE = -hbBox.min.y;            // chassis origin above the floor when the wheels touch it
 const HB_LIFT = HB_AXLE - 0.0054;        // how far the robot is raised to stand on the bed
 const HB_R = HB_AXLE;                    // rolling radius, for turning the wheels
-hbBoard.position.y = HB_AXLE;
-hbPivot.visible = false;
+hbPivot.visible = false; // the pivot sits at axle height, so the pair tips about the axle, not the floor
 const hbWheels = ['wheel_left', 'wheel_right'].map(n => hbBoard.getObjectByName(n)).filter(Boolean).map(node => ({ node, rest: node.quaternion.clone() }));
 const hbQ = new THREE.Quaternion(), HB_X = new THREE.Vector3(1, 0, 0);
-const HB_YAW = 0; // the board's heading relative to the robot's
+const HB_YAW = 0; // the board's heading relative to the robot's: both models face -z, so its left wheel is on the robot's left
+// The ride: a scripted loop of drive commands (forward speed v in m/s, yaw rate w in rad/s), integrated through a
+// differential-drive model so the robot can never slide sideways and the wheels turn by the right amount
+// (and counter-rotate in a pivot). Each move is windowed by a smooth bump, so it starts and stops gently, and
+// every move closes on itself: a sway, a nudge forward and back, a full turn on the spot, one small circle.
+const HB_TRACK = 0.109, HB_ROLL_R = 0.0507; // half the wheel track and the rolling radius, in metres
+const hbBump = (t, a, b, r) => { const k = Math.min(1, Math.max(0, Math.min((t - a) / r, (b - t) / r))); return k * k * (3 - 2 * k); };
+const HB_SPIN = [6.2, 9.0, 0.5], HB_LAP = [9.5, 13.93, 0.5], HB_LAP_V = 0.16, HB_LAP_R = 0.10, HB_T = 14.6;
+function hbCmd(t) {
+    let v = 0, w = 0;
+    w += 1.15 * Math.sin((t - 1.0) * Math.PI * 2 / 1.0) * hbBump(t, 1.0, 3.0, 0.4);           // sway: look left and right
+    v += 0.18 * hbBump(t, 3.2, 4.4, 0.3) - 0.18 * hbBump(t, 4.7, 5.9, 0.3);                    // nudge forward, then back
+    w += (Math.PI * 2 / (HB_SPIN[1] - HB_SPIN[0] - HB_SPIN[2])) * hbBump(t, ...HB_SPIN);       // one full turn on the spot
+    const lap = hbBump(t, ...HB_LAP);                                                           // one circle that closes
+    v += HB_LAP_V * lap; w += HB_LAP_V / HB_LAP_R * lap;
+    return [v, w];
+}
+const HB_FPS = 60, HB_N = Math.round(HB_T * HB_FPS) + 1;
+const hbPath = new Float32Array(HB_N * 7); // x (lateral), z (forward at th = 0), th, wl, wr, lean, w
+{
+    let x = 0, z = 0, th = 0, wl = 0, wr = 0, lean = 0, pv = 0;
+    const SUB = 8, dt = 1 / HB_FPS / SUB;
+    for (let i = 0; i < HB_N; i++) {
+        const [v0, w0] = hbCmd(i / HB_FPS);
+        hbPath.set([x, z, th, wl, wr, lean, w0], i * 7);
+        for (let k = 0; k < SUB; k++) {
+            const [v, w] = hbCmd(i / HB_FPS + k * dt);
+            x += v * Math.sin(th) * dt; z += v * Math.cos(th) * dt; th += w * dt;
+            wl += (v - w * HB_TRACK) / HB_ROLL_R * dt; wr += (v + w * HB_TRACK) / HB_ROLL_R * dt;
+            const acc = (v - pv) / dt; pv = v;
+            lean += (Math.min(0.07, Math.max(-0.07, 0.22 * acc)) - lean) * Math.min(1, dt / 0.12); // cosmetic: it leans into a start
+        }
+    }
+    // The moves close analytically; spread what the integration left over along the loop so it repeats seamlessly.
+    const ex = hbPath[(HB_N - 1) * 7], ez = hbPath[(HB_N - 1) * 7 + 1], eth = hbPath[(HB_N - 1) * 7 + 2] - Math.PI * 4;
+    for (let i = 0; i < HB_N; i++) { const f = i / (HB_N - 1); hbPath[i * 7] -= ex * f; hbPath[i * 7 + 1] -= ez * f; hbPath[i * 7 + 2] -= eth * f; }
+    window.__hbEnd = [ex, ez, eth];
+}
+const hbAt = (t, out) => {
+    const u = ((t % HB_T) + HB_T) % HB_T * HB_FPS, i = Math.min(HB_N - 2, Math.floor(u)), f = u - i;
+    for (let k = 0; k < 7; k++) out[k] = hbPath[i * 7 + k] + (hbPath[(i + 1) * 7 + k] - hbPath[i * 7 + k]) * f;
+    return out;
+};
+const hbState = new Float32Array(7); let hbT0 = -1;
 window.__hb = { box: hbBox, axle: HB_AXLE, wheels: hbWheels.length };
 const pose = { p: new THREE.Vector3(), q: new THREE.Quaternion(), ant: [0, 0], yaw: 0 };
 robot.setPose(pose);
@@ -1010,22 +1052,31 @@ function frame(ms) {
     contact.material.opacity = s.shadow;
     robot.group.scale.setScalar(s.scale);
     robot.setYaw(s.yaw);
-    // Hoverboard: the robot stands on the board and the pair rolls into place from behind, wheels turning,
-    // then balances, rocking a little.
+    // Hoverboard: the robot stands on the board and drives its loop (see hbCmd). Position only ever comes from
+    // the integrated drive commands; the pair pitches about the axle, and the antennas swing with it.
     {
-        const h = s.hover, roll = smooth(Math.min(1, Math.max(0, (h - 0.3) / 0.7)));
-        hbPivot.visible = h > 0.01;
-        robot.root.position.set(0, hbPivot.visible ? HB_LIFT : 0, 0);
-        if (hbPivot.visible) {
-            const along = 0.012 * Math.sin(t * 1.3) * roll - 0.6 * (1 - roll); // metres along the board's heading
-            hbPivot.rotation.y = robot.root.rotation.y + HB_YAW;
-            const fx = Math.sin(hbPivot.rotation.y), fz = Math.cos(hbPivot.rotation.y);
-            hbPivot.position.set(fx * along, 0, fz * along);
-            robot.root.position.x = fx * along; robot.root.position.z = fz * along;
-            contact.position.x = fx * along; contact.position.z = fz * along;
-            const a = along / HB_R;
-            for (const w of hbWheels) w.node.quaternion.copy(w.rest).multiply(hbQ.setFromAxisAngle(HB_X, a));
-        } else { contact.position.x = contact.position.z = 0; }
+        const on = s.hover > 0.5;
+        hbPivot.visible = on;
+        if (on) {
+            if (hbT0 < 0) hbT0 = t;
+            const [hx, hz, hth, hwl, hwr, lean] = hbAt(window.__hbT ?? (t - hbT0), hbState);
+            // The robot model faces -z, so the path (forward = +z at heading 0) is turned by its yaw plus half a turn.
+            const psi0 = robot.root.rotation.y, c0 = Math.cos(psi0 + Math.PI), s0 = Math.sin(psi0 + Math.PI);
+            const bx = hx * c0 + hz * s0, bz = -hx * s0 + hz * c0, psi = psi0 + hth;
+            const up = HB_LIFT - HB_AXLE, sl = Math.sin(-lean), cl = Math.cos(lean); // forward is -z: lean forward is a negative pitch
+            robot.root.rotation.set(-lean, psi, 0, 'YXZ');
+            robot.root.position.set(bx + up * sl * Math.sin(psi), HB_AXLE + up * cl, bz + up * sl * Math.cos(psi));
+            hbPivot.rotation.set(-lean, psi + HB_YAW, 0, 'YXZ');
+            hbPivot.position.set(bx, HB_AXLE, bz);
+            contact.position.x = bx; contact.position.z = bz;
+            const ang = [hwl, hwr];
+            hbWheels.forEach((w, i) => w.node.quaternion.copy(w.rest).multiply(hbQ.setFromAxisAngle(HB_X, ang[i])));
+            pose.ant = [pose.ant[0] + lean * 5, pose.ant[1] + lean * 5];
+        } else {
+            hbT0 = -1;
+            robot.root.rotation.set(0, robot.root.rotation.y, 0, 'XYZ'); robot.root.position.set(0, 0, 0);
+            contact.position.x = contact.position.z = 0;
+        }
     }
     robot.setPose(pose);
     robot.setExplode(s.explode);
